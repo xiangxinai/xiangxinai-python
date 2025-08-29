@@ -19,8 +19,8 @@ class Message(BaseModel):
     @validator('content')
     def validate_content(cls, v):
         # 允许空字符串，但长度不能超过限制
-        if v and len(v) > 10000:
-            raise ValueError('content too long (max 10000 characters)')
+        if v and len(v) > 1000000:
+            raise ValueError('content too long (max 1000000 characters)')
         return v.strip() if v else v
 
 
