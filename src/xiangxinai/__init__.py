@@ -42,7 +42,7 @@ from .exceptions import (
     ValidationError
 )
 
-__version__ = "1.1.0"
+__version__ = "1.1.1"
 __author__ = "XiangxinAI"
 __email__ = "wanglei@xiangxinai.cn"
 

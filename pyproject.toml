@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "xiangxinai"
-version = "1.1.0"
+version = "1.1.1"
 description = "象信AI安全护栏 Python 客户端 - 基于LLM的上下文感知AI安全护栏"
 readme = "README.md"
 license = "Apache-2.0"
@@ -65,6 +65,7 @@ Issues = "https://github.com/xiangxinai/xiangxin-guardrails/issues"
 Changelog = "https://github.com/xiangxinai/xiangxin-guardrails/blob/main/CHANGELOG.md"
 
 [tool.setuptools]
+package-dir = {"" = "src"}
 packages = ["xiangxinai"]
 
 [tool.setuptools.package-data]
@@ -74,10 +75,10 @@ xiangxinai = ["py.typed"]
 minversion = "6.0"
 addopts = "-ra -q --strict-markers"
 testpaths = ["tests"]
-pythonpath = ["."]
+pythonpath = ["src"]
 
 [tool.coverage.run]
-source = ["xiangxinai"]
+source = ["src/xiangxinai"]
 omit = ["tests/*"]
 
 [tool.coverage.report]
