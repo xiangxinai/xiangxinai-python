@@ -54,7 +54,7 @@ class XiangxinAI:
         self._session.headers.update({
             "Authorization": f"Bearer {api_key}",
             "Content-Type": "application/json",
-            "User-Agent": f"xiangxinai-python/1.0.0"
+            "User-Agent": f"xiangxinai-python/2.0.0"
         })
     
     def _create_safe_response(self) -> GuardrailResponse:
@@ -78,15 +78,13 @@ class XiangxinAI:
     
     def check_prompt(
         self,
-        content: str,
-        model: str = "Xiangxin-Guardrails-Text"
+        content: str
     ) -> GuardrailResponse:
-        """检测提示词的安全性
-        
+        """检测用户输入的安全性
+
         Args:
-            content: 要检测的提示词内容
-            model: 使用的模型名称
-            
+            content: 要检测的用户输入内容
+
         Returns:
             GuardrailResponse: 检测结果，格式为：
             {
@@ -105,13 +103,13 @@ class XiangxinAI:
                 "suggest_action": "通过/阻断/代答",
                 "suggest_answer": "建议回答内容"
             }
-            
+
         Raises:
             ValidationError: 输入参数无效
             AuthenticationError: 认证失败
             RateLimitError: 超出速率限制
             XiangxinAIError: 其他API错误
-            
+
         Example:
             >>> result = client.check_prompt("我想学习编程")
             >>> print(result.overall_risk_level)  # "无风险"
@@ -121,13 +119,12 @@ class XiangxinAI:
         # 如果content是空字符串，直接返回无风险
         if not content or not content.strip():
             return self._create_safe_response()
-        
-        request_data = GuardrailRequest(
-            model=model,
-            messages=[Message(role="user", content=content.strip())],
-        )
-        
-        return self._make_request("POST", "/guardrails", request_data.dict())
+
+        request_data = {
+            "input": content.strip()
+        }
+
+        return self._make_request("POST", "/guardrails/input", request_data)
     
     def check_conversation(
         self,
@@ -205,7 +202,65 @@ class XiangxinAI:
         )
         
         return self._make_request("POST", "/guardrails", request_data.dict())
-     
+
+    def check_response_ctx(
+        self,
+        prompt: str,
+        response: str
+    ) -> GuardrailResponse:
+        """检测用户输入和模型输出的安全性 - 上下文感知检测
+
+        这是护栏的核心功能，能够理解用户输入和模型输出的上下文进行安全检测。
+        护栏会基于用户问题的上下文来检测模型输出是否安全合规。
+
+        Args:
+            prompt: 用户输入的文本内容，用于让护栏理解上下文语意
+            response: 模型输出的文本内容，实际检测对象
+
+        Returns:
+            GuardrailResponse: 基于上下文的检测结果，格式与check_prompt相同：
+            {
+                "id": "guardrails-xxx",
+                "result": {
+                    "compliance": {
+                        "risk_level": "高风险/中风险/低风险/无风险",
+                        "categories": ["暴力犯罪", "敏感政治话题"]
+                    },
+                    "security": {
+                        "risk_level": "高风险/中风险/低风险/无风险",
+                        "categories": ["提示词攻击"]
+                    }
+                },
+                "overall_risk_level": "高风险/中风险/低风险/无风险",
+                "suggest_action": "通过/阻断/代答",
+                "suggest_answer": "建议回答内容"
+            }
+
+        Raises:
+            ValidationError: 输入参数无效
+            AuthenticationError: 认证失败
+            RateLimitError: 超出速率限制
+            XiangxinAIError: 其他API错误
+
+        Example:
+            >>> result = client.check_response_ctx(
+            ...     "教我做饭",
+            ...     "我可以教你做一些简单的家常菜"
+            ... )
+            >>> print(result.overall_risk_level)  # "无风险"
+            >>> print(result.suggest_action)  # "通过"
+        """
+        # 如果prompt或response是空字符串，直接返回无风险
+        if (not prompt or not prompt.strip()) and (not response or not response.strip()):
+            return self._create_safe_response()
+
+        request_data = {
+            "input": prompt.strip() if prompt else "",
+            "output": response.strip() if response else ""
+        }
+
+        return self._make_request("POST", "/guardrails/output", request_data)
+
     def health_check(self) -> Dict[str, Any]:
         """检查API服务健康状态
         
@@ -255,11 +310,11 @@ class XiangxinAI:
                 # 处理HTTP状态码
                 if response.status_code == 200:
                     result_data = response.json()
-                    
+
                     # 如果是护栏检测请求，返回结构化响应
-                    if endpoint == "/guardrails" and isinstance(result_data, dict):
+                    if (endpoint in ["/guardrails", "/guardrails/input", "/guardrails/output"]) and isinstance(result_data, dict):
                         return GuardrailResponse(**result_data)
-                    
+
                     return result_data
                 
                 elif response.status_code == 401:
@@ -359,7 +414,7 @@ class AsyncXiangxinAI:
         self._headers = {
             "Authorization": f"Bearer {api_key}",
             "Content-Type": "application/json",
-            "User-Agent": f"xiangxinai-python/1.0.0"
+            "User-Agent": f"xiangxinai-python/2.0.0"
         }
     
     async def _get_session(self) -> aiohttp.ClientSession:
@@ -393,24 +448,22 @@ class AsyncXiangxinAI:
     
     async def check_prompt(
         self,
-        content: str,
-        model: str = "Xiangxin-Guardrails-Text"
+        content: str
     ) -> GuardrailResponse:
-        """异步检测提示词的安全性
-        
+        """异步检测用户输入的安全性
+
         Args:
-            content: 要检测的提示词内容
-            model: 使用的模型名称
-            
+            content: 要检测的用户输入内容
+
         Returns:
             GuardrailResponse: 检测结果，格式与同步版本相同
-            
+
         Raises:
             ValidationError: 输入参数无效
             AuthenticationError: 认证失败
             RateLimitError: 超出速率限制
             XiangxinAIError: 其他API错误
-            
+
         Example:
             >>> async with AsyncXiangxinAI("your-api-key") as client:
             ...     result = await client.check_prompt("我想学习编程")
@@ -419,13 +472,12 @@ class AsyncXiangxinAI:
         # 如果content是空字符串，直接返回无风险
         if not content or not content.strip():
             return self._create_safe_response()
-        
-        request_data = GuardrailRequest(
-            model=model,
-            messages=[Message(role="user", content=content.strip())],
-        )
-        
-        return await self._make_request("POST", "/guardrails", request_data.dict())
+
+        request_data = {
+            "input": content.strip()
+        }
+
+        return await self._make_request("POST", "/guardrails/input", request_data)
     
     async def check_conversation(
         self,
@@ -486,7 +538,43 @@ class AsyncXiangxinAI:
         )
         
         return await self._make_request("POST", "/guardrails", request_data.dict())
-     
+
+    async def check_response_ctx(
+        self,
+        prompt: str,
+        response: str
+    ) -> GuardrailResponse:
+        """异步检测用户输入和模型输出的安全性 - 上下文感知检测
+
+        这是护栏的核心功能，能够理解用户输入和模型输出的上下文进行安全检测。
+        护栏会基于用户问题的上下文来检测模型输出是否安全合规。
+
+        Args:
+            prompt: 用户输入的文本内容，用于让护栏理解上下文语意
+            response: 模型输出的文本内容，实际检测对象
+
+        Returns:
+            GuardrailResponse: 基于上下文的检测结果
+
+        Example:
+            >>> async with AsyncXiangxinAI("your-api-key") as client:
+            ...     result = await client.check_response_ctx(
+            ...         "教我做饭",
+            ...         "我可以教你做一些简单的家常菜"
+            ...     )
+            ...     print(result.overall_risk_level)
+        """
+        # 如果prompt或response是空字符串，直接返回无风险
+        if (not prompt or not prompt.strip()) and (not response or not response.strip()):
+            return self._create_safe_response()
+
+        request_data = {
+            "input": prompt.strip() if prompt else "",
+            "output": response.strip() if response else ""
+        }
+
+        return await self._make_request("POST", "/guardrails/output", request_data)
+
     async def health_check(self) -> Dict[str, Any]:
         """异步检查API服务健康状态
         
@@ -568,7 +656,7 @@ class AsyncXiangxinAI:
             result_data = await response.json()
             
             # 如果是护栏检测请求，返回结构化响应
-            if endpoint == "/guardrails" and isinstance(result_data, dict):
+            if (endpoint in ["/guardrails", "/guardrails/input", "/guardrails/output"]) and isinstance(result_data, dict):
                 return GuardrailResponse(**result_data)
             
             return result_data

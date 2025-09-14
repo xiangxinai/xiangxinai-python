@@ -34,8 +34,16 @@ client = XiangxinAI(
     base_url="https://api.xiangxinai.cn/v1"  # 云端API
 )
 
-# 检测提示词
+# 检测用户输入
 result = client.check_prompt("我想学习Python编程")
+print(result.suggest_action)  # 输出: 通过
+print(result.overall_risk_level)  # 输出: 无风险
+
+# 检测输出内容（基于上下文）
+result = client.check_response_ctx(
+    prompt="教我做饭",
+    response="我可以教你做一些简单的家常菜"
+)
 print(result.suggest_action)  # 输出: 通过
 print(result.overall_risk_level)  # 输出: 无风险
 ```

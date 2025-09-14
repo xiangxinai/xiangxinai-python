@@ -13,9 +13,12 @@ Example:
     # 使用云端API
     client = XiangxinAI("your-api-key")
     
-    # 检测提示词
+    # 检测用户输入
     result = client.check_prompt("用户的问题")
-    
+
+    # 检测输出内容（基于上下文）
+    result = client.check_response_ctx("用户问题", "助手回答")
+
     # 检测对话上下文（用户+助手回答）
     messages = [
         {"role": "user", "content": "用户问题"},
@@ -42,7 +45,7 @@ from .exceptions import (
     ValidationError
 )
 
-__version__ = "1.1.1"
+__version__ = "2.0.0"
 __author__ = "XiangxinAI"
 __email__ = "wanglei@xiangxinai.cn"
 
