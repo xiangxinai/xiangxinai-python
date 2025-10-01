@@ -5,6 +5,7 @@ import requests
 import time
 import asyncio
 import aiohttp
+import base64
 from typing import Optional, Dict, Any, List, Union
 from .models import GuardrailRequest, GuardrailResponse, Message, GuardrailResult, ComplianceResult, SecurityResult
 from .exceptions import (
@@ -260,6 +261,144 @@ class XiangxinAI:
         }
 
         return self._make_request("POST", "/guardrails/output", request_data)
+
+    def _encode_base64_from_path(self, image_path: str) -> str:
+        """将图片编码为base64格式
+
+        Args:
+            image_path: 图片的本地路径或HTTP(S)链接
+
+        Returns:
+            str: base64编码的图片内容
+        """
+        if image_path.startswith(('http://', 'https://')):
+            # 从URL获取图片
+            response = self._session.get(image_path, timeout=self.timeout)
+            response.raise_for_status()
+            return base64.b64encode(response.content).decode('utf-8')
+        else:
+            # 从本地文件读取
+            with open(image_path, 'rb') as f:
+                return base64.b64encode(f.read()).decode('utf-8')
+
+    def check_prompt_image(
+        self,
+        prompt: str,
+        image: str,
+        model: str = "Xiangxin-Guardrails-VL"
+    ) -> GuardrailResponse:
+        """检测文本提示词和图片的安全性 - 多模态检测
+
+        结合文本语义和图片内容进行安全检测。
+
+        Args:
+            prompt: 文本提示词（可以为空）
+            image: 图片文件的本地路径或HTTP(S)链接（不能为空）
+            model: 使用的模型名称，默认为多模态模型
+
+        Returns:
+            GuardrailResponse: 检测结果
+
+        Raises:
+            ValidationError: 输入参数无效
+            AuthenticationError: 认证失败
+            RateLimitError: 超出速率限制
+            XiangxinAIError: 其他API错误
+
+        Example:
+            >>> # 检测本地图片
+            >>> result = client.check_prompt_image("这个图片安全吗？", "/path/to/image.jpg")
+            >>> # 检测网络图片
+            >>> result = client.check_prompt_image("", "https://example.com/image.jpg")
+            >>> print(result.overall_risk_level)
+        """
+        if not image:
+            raise ValidationError("Image path cannot be empty")
+
+        # 编码图片
+        try:
+            image_base64 = self._encode_base64_from_path(image)
+        except FileNotFoundError:
+            raise ValidationError(f"Image file not found: {image}")
+        except Exception as e:
+            raise XiangxinAIError(f"Failed to encode image: {str(e)}")
+
+        # 构建消息
+        content = []
+        if prompt and prompt.strip():
+            content.append({"type": "text", "text": prompt.strip()})
+        content.append({
+            "type": "image_url",
+            "image_url": {"url": f"data:image/jpeg;base64,{image_base64}"}
+        })
+
+        messages = [Message(role="user", content=content)]
+
+        request_data = GuardrailRequest(
+            model=model,
+            messages=messages
+        )
+
+        return self._make_request("POST", "/guardrails", request_data.dict())
+
+    def check_prompt_images(
+        self,
+        prompt: str,
+        images: List[str],
+        model: str = "Xiangxin-Guardrails-VL"
+    ) -> GuardrailResponse:
+        """检测文本提示词和多张图片的安全性 - 多模态检测
+
+        结合文本语义和多张图片内容进行安全检测。
+
+        Args:
+            prompt: 文本提示词（可以为空）
+            images: 图片文件的本地路径或HTTP(S)链接列表（不能为空）
+            model: 使用的模型名称，默认为多模态模型
+
+        Returns:
+            GuardrailResponse: 检测结果
+
+        Raises:
+            ValidationError: 输入参数无效
+            AuthenticationError: 认证失败
+            RateLimitError: 超出速率限制
+            XiangxinAIError: 其他API错误
+
+        Example:
+            >>> images = ["/path/to/image1.jpg", "https://example.com/image2.jpg"]
+            >>> result = client.check_prompt_images("这些图片安全吗？", images)
+            >>> print(result.overall_risk_level)
+        """
+        if not images or len(images) == 0:
+            raise ValidationError("Images list cannot be empty")
+
+        # 构建消息内容
+        content = []
+        if prompt and prompt.strip():
+            content.append({"type": "text", "text": prompt.strip()})
+
+        # 编码所有图片
+        for image_path in images:
+            try:
+                image_base64 = self._encode_base64_from_path(image_path)
+                content.append({
+                    "type": "image_url",
+                    "image_url": {"url": f"data:image/jpeg;base64,{image_base64}"}
+                })
+            except FileNotFoundError:
+                raise ValidationError(f"Image file not found: {image_path}")
+            except Exception as e:
+                raise XiangxinAIError(f"Failed to encode image {image_path}: {str(e)}")
+
+        messages = [Message(role="user", content=content)]
+
+        request_data = GuardrailRequest(
+            model=model,
+            messages=messages
+        )
+
+        return self._make_request("POST", "/guardrails", request_data.dict())
 
     def health_check(self) -> Dict[str, Any]:
         """检查API服务健康状态
@@ -574,6 +713,150 @@ class AsyncXiangxinAI:
         }
 
         return await self._make_request("POST", "/guardrails/output", request_data)
+
+    async def _encode_base64_from_path_async(self, image_path: str) -> str:
+        """异步将图片编码为base64格式
+
+        Args:
+            image_path: 图片的本地路径或HTTP(S)链接
+
+        Returns:
+            str: base64编码的图片内容
+        """
+        if image_path.startswith(('http://', 'https://')):
+            # 从URL获取图片
+            session = await self._get_session()
+            async with session.get(image_path) as response:
+                response.raise_for_status()
+                content = await response.read()
+                return base64.b64encode(content).decode('utf-8')
+        else:
+            # 从本地文件读取
+            loop = asyncio.get_event_loop()
+            return await loop.run_in_executor(None, self._encode_base64_from_file, image_path)
+
+    def _encode_base64_from_file(self, file_path: str) -> str:
+        """从本地文件编码base64（用于异步执行）"""
+        with open(file_path, 'rb') as f:
+            return base64.b64encode(f.read()).decode('utf-8')
+
+    async def check_prompt_image(
+        self,
+        prompt: str,
+        image: str,
+        model: str = "Xiangxin-Guardrails-VL"
+    ) -> GuardrailResponse:
+        """异步检测文本提示词和图片的安全性 - 多模态检测
+
+        结合文本语义和图片内容进行安全检测。
+
+        Args:
+            prompt: 文本提示词（可以为空）
+            image: 图片文件的本地路径或HTTP(S)链接（不能为空）
+            model: 使用的模型名称，默认为多模态模型
+
+        Returns:
+            GuardrailResponse: 检测结果
+
+        Raises:
+            ValidationError: 输入参数无效
+            AuthenticationError: 认证失败
+            RateLimitError: 超出速率限制
+            XiangxinAIError: 其他API错误
+
+        Example:
+            >>> async with AsyncXiangxinAI("your-api-key") as client:
+            ...     result = await client.check_prompt_image("这个图片安全吗？", "/path/to/image.jpg")
+            ...     print(result.overall_risk_level)
+        """
+        if not image:
+            raise ValidationError("Image path cannot be empty")
+
+        # 编码图片
+        try:
+            image_base64 = await self._encode_base64_from_path_async(image)
+        except FileNotFoundError:
+            raise ValidationError(f"Image file not found: {image}")
+        except Exception as e:
+            raise XiangxinAIError(f"Failed to encode image: {str(e)}")
+
+        # 构建消息
+        content = []
+        if prompt and prompt.strip():
+            content.append({"type": "text", "text": prompt.strip()})
+        content.append({
+            "type": "image_url",
+            "image_url": {"url": f"data:image/jpeg;base64,{image_base64}"}
+        })
+
+        messages = [Message(role="user", content=content)]
+
+        request_data = GuardrailRequest(
+            model=model,
+            messages=messages
+        )
+
+        return await self._make_request("POST", "/guardrails", request_data.dict())
+
+    async def check_prompt_images(
+        self,
+        prompt: str,
+        images: List[str],
+        model: str = "Xiangxin-Guardrails-VL"
+    ) -> GuardrailResponse:
+        """异步检测文本提示词和多张图片的安全性 - 多模态检测
+
+        结合文本语义和多张图片内容进行安全检测。
+
+        Args:
+            prompt: 文本提示词（可以为空）
+            images: 图片文件的本地路径或HTTP(S)链接列表（不能为空）
+            model: 使用的模型名称，默认为多模态模型
+
+        Returns:
+            GuardrailResponse: 检测结果
+
+        Raises:
+            ValidationError: 输入参数无效
+            AuthenticationError: 认证失败
+            RateLimitError: 超出速率限制
+            XiangxinAIError: 其他API错误
+
+        Example:
+            >>> images = ["/path/to/image1.jpg", "https://example.com/image2.jpg"]
+            >>> async with AsyncXiangxinAI("your-api-key") as client:
+            ...     result = await client.check_prompt_images("这些图片安全吗？", images)
+            ...     print(result.overall_risk_level)
+        """
+        if not images or len(images) == 0:
+            raise ValidationError("Images list cannot be empty")
+
+        # 构建消息内容
+        content = []
+        if prompt and prompt.strip():
+            content.append({"type": "text", "text": prompt.strip()})
+
+        # 编码所有图片
+        for image_path in images:
+            try:
+                image_base64 = await self._encode_base64_from_path_async(image_path)
+                content.append({
+                    "type": "image_url",
+                    "image_url": {"url": f"data:image/jpeg;base64,{image_base64}"}
+                })
+            except FileNotFoundError:
+                raise ValidationError(f"Image file not found: {image_path}")
+            except Exception as e:
+                raise XiangxinAIError(f"Failed to encode image {image_path}: {str(e)}")
+
+        messages = [Message(role="user", content=content)]
+
+        request_data = GuardrailRequest(
+            model=model,
+            messages=messages
+        )
+
+        return await self._make_request("POST", "/guardrails", request_data.dict())
 
     async def health_check(self) -> Dict[str, Any]:
         """异步检查API服务健康状态

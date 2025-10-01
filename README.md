@@ -11,6 +11,7 @@
 - 🧠 **上下文感知** - 基于LLM的对话理解，而不是简单的批量检测
 - 🔍 **提示词攻击检测** - 识别恶意提示词注入和越狱攻击
 - 📋 **内容合规检测** - 符合《生成式人工智能服务安全基本要求》
+- 🖼️ **多模态检测** - 支持图片内容安全检测（2.3.0+）
 - 🛠️ **易于集成** - 兼容OpenAI API格式，一行代码接入
 - ⚡ **OpenAI风格API** - 熟悉的接口设计，快速上手
 - 🚀 **同步/异步支持** - 支持同步和异步两种调用方式，满足不同场景需求
@@ -111,6 +112,68 @@ async def batch_check():
             print(f"内容{i+1}: {result.overall_risk_level}")
 
 asyncio.run(batch_check())
+```
+
+### 多模态图片检测（2.3.0+）
+
+象信AI安全护栏2.3.0版本新增了多模态检测功能，支持图片内容安全检测，可以结合提示词文本的语义和图片内容语义分析得出是否安全。
+
+```python
+from xiangxinai import XiangxinAI
+
+client = XiangxinAI(api_key="your-api-key")
+
+# 检测单张图片（本地文件）
+result = client.check_prompt_image(
+    prompt="这个图片安全吗？",
+    image="/path/to/image.jpg"
+)
+print(result.overall_risk_level)
+print(result.suggest_action)
+
+# 检测单张图片（网络URL）
+result = client.check_prompt_image(
+    prompt="",  # prompt可以为空
+    image="https://example.com/image.jpg"
+)
+
+# 检测多张图片
+images = [
+    "/path/to/image1.jpg",
+    "https://example.com/image2.jpg",
+    "/path/to/image3.png"
+]
+result = client.check_prompt_images(
+    prompt="这些图片都安全吗？",
+    images=images
+)
+print(result.overall_risk_level)
+```
+
+异步版本：
+
+```python
+import asyncio
+from xiangxinai import AsyncXiangxinAI
+
+async def check_images():
+    async with AsyncXiangxinAI(api_key="your-api-key") as client:
+        # 异步检测单张图片
+        result = await client.check_prompt_image(
+            prompt="这个图片安全吗？",
+            image="/path/to/image.jpg"
+        )
+        print(result.overall_risk_level)
+
+        # 异步检测多张图片
+        images = ["/path/to/image1.jpg", "/path/to/image2.jpg"]
+        result = await client.check_prompt_images(
+            prompt="这些图片都安全吗？",
+            images=images
+        )
+        print(result.overall_risk_level)
+
+asyncio.run(check_images())
 ```
 
 ### 私有化部署
