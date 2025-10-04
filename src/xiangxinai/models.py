@@ -48,10 +48,17 @@ class SecurityResult(BaseModel):
     categories: List[str] = Field(default_factory=list, description="风险类别列表")
 
 
+class DataSecurityResult(BaseModel):
+    """数据安全检测结果"""
+    risk_level: str = Field(..., description="风险等级: 无风险, 低风险, 中风险, 高风险")
+    categories: List[str] = Field(default_factory=list, description="敏感数据类别列表")
+
+
 class GuardrailResult(BaseModel):
     """护栏检测结果"""
     compliance: ComplianceResult = Field(..., description="合规检测结果")
     security: SecurityResult = Field(..., description="安全检测结果")
+    data: Optional[DataSecurityResult] = Field(None, description="数据安全检测结果")
 
 
 class GuardrailResponse(BaseModel):
@@ -84,4 +91,6 @@ class GuardrailResponse(BaseModel):
         categories = []
         categories.extend(self.result.compliance.categories)
         categories.extend(self.result.security.categories)
+        if self.result.data:
+            categories.extend(self.result.data.categories)
         return list(set(categories))  # 去重

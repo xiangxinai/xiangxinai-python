@@ -55,7 +55,7 @@ class XiangxinAI:
         self._session.headers.update({
             "Authorization": f"Bearer {api_key}",
             "Content-Type": "application/json",
-            "User-Agent": f"xiangxinai-python/2.0.0"
+            "User-Agent": f"xiangxinai-python/2.4.0"
         })
     
     def _create_safe_response(self) -> GuardrailResponse:
@@ -553,7 +553,7 @@ class AsyncXiangxinAI:
         self._headers = {
             "Authorization": f"Bearer {api_key}",
             "Content-Type": "application/json",
-            "User-Agent": f"xiangxinai-python/2.0.0"
+            "User-Agent": f"xiangxinai-python/2.4.0"
         }
     
     async def _get_session(self) -> aiohttp.ClientSession:
