@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "xiangxinai"
-version = "2.6.1"
+version = "2.6.2"
 description = "Xiangxin AI guardrails Python SDK - An LLM-based context-aware AI guardrail that understands conversation context for security, safety and data leakage detection."
 readme = "README.md"
 license = "Apache-2.0"
