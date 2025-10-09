@@ -69,4 +69,4 @@ data/
 *.jsonl
 #*.json
 *.xlsx
-tests
+tests/

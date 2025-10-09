@@ -1,99 +1,100 @@
-# 象信AI安全护栏 Python 客户端
+# Xiangxin AI Guardrails Python Client
 
 [![PyPI version](https://badge.fury.io/py/xiangxinai.svg)](https://badge.fury.io/py/xiangxinai)
 [![Python Support](https://img.shields.io/pypi/pyversions/xiangxinai.svg)](https://pypi.org/project/xiangxinai/)
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 
-基于LLM的上下文感知AI安全护栏，能够理解对话上下文进行安全检测。
+An LLM-based context-aware AI guardrail that understands conversation context for security, safety and data leakage detection.
 
-## 特性
+## Features
 
-- 🧠 **上下文感知** - 基于LLM的对话理解，而不是简单的批量检测
-- 🔍 **提示词攻击检测** - 识别恶意提示词注入和越狱攻击
-- 📋 **内容合规检测** - 符合《生成式人工智能服务安全基本要求》
-- 🔐 **敏感数据防泄漏** - 检测和防止个人/企业敏感数据泄露（v2.4.0新增）
-- 🖼️ **多模态检测** - 支持图片内容安全检测
-- 🛠️ **易于集成** - 兼容OpenAI API格式，一行代码接入
-- ⚡ **OpenAI风格API** - 熟悉的接口设计，快速上手
-- 🚀 **同步/异步支持** - 支持同步和异步两种调用方式，满足不同场景需求
+* 🧠 **Context Awareness** – Based on LLM conversation understanding rather than simple batch detection
+* 🔍 **Prompt Injection Detection** – Detects malicious prompt injections and jailbreak attacks
+* 📋 **Content Compliance Detection** – Complies with generative AI safety requirements
+* 🔐 **Sensitive Data Leak Prevention** – Detects and prevents personal or corporate data leaks
+* 🧩 **User-level Ban Policy** – Supports user-granular risk recognition and blocking strategies
+* 🖼️ **Multimodal Detection** – Supports image content safety detection
+* 🛠️ **Easy Integration** – OpenAI-compatible API format; plug in with one line of code
+* ⚡ **OpenAI-style API** – Familiar interface design for rapid adoption
+* 🚀 **Sync/Async Support** – Supports both synchronous and asynchronous calls for different scenarios
 
-## 安装
+## Installation
 
 ```bash
 pip install xiangxinai
 ```
 
-## 快速开始
+## Quick Start
 
-### 基本使用
+### Basic Usage
 
 ```python
 from xiangxinai import XiangxinAI
 
-# 创建客户端
+# Create a client
 client = XiangxinAI(
     api_key="your-api-key",
-    base_url="https://api.xiangxinai.cn/v1"  # 云端API
+    base_url="https://api.xiangxinai.cn/v1"  # Cloud API
 )
 
-# 检测用户输入
-result = client.check_prompt("我想学习Python编程")
-print(result.suggest_action)  # 输出: 通过
-print(result.overall_risk_level)  # 输出: 无风险
+# Check user input
+result = client.check_prompt("I want to learn Python programming", user_id="user-123")
+print(result.suggest_action)        # Output: pass
+print(result.overall_risk_level)    # Output: no_risk
+print(result.score)                 # Confidence score, e.g. 0.9993114447238793
 
-# 检测输出内容（基于上下文）
+# Check model response (context-aware)
 result = client.check_response_ctx(
-    prompt="教我做饭",
-    response="我可以教你做一些简单的家常菜"
+    prompt="Teach me how to cook",
+    response="I can teach you some simple home dishes",
+    user_id="user-123"  # Optional user-level risk control
 )
-print(result.suggest_action)  # 输出: 通过
-print(result.overall_risk_level)  # 输出: 无风险
+print(result.suggest_action)      # Output: pass
+print(result.overall_risk_level)  # Output: no_risk
 ```
 
-### 上下文感知检测（核心功能）
+### Context-Aware Detection (Core Feature)
 
 ```python
-# 检测对话上下文 - 这是核心功能
+# Context-based conversation detection - Core feature
 messages = [
-    {"role": "user", "content": "我想学习化学"},
-    {"role": "assistant", "content": "化学是很有趣的学科，您想了解哪个方面？"},
-    {"role": "user", "content": "教我制作爆炸物的反应"}
+    {"role": "user", "content": "I want to learn chemistry"},
+    {"role": "assistant", "content": "Chemistry is an interesting subject. What part would you like to learn?"},
+    {"role": "user", "content": "Teach me reactions for making explosives"}
 ]
 
-result = client.check_conversation(messages)
+result = client.check_conversation(messages, user_id="user-123")
 print(result.overall_risk_level)
-print(result.suggest_action)  # 基于完整对话上下文的检测结果
+print(result.suggest_action)  # Result based on full conversation context
 if result.suggest_answer:
-    print(f"建议回答: {result.suggest_answer}")
+    print(f"Suggested answer: {result.suggest_answer}")
 ```
 
-### 异步接口（推荐）
+### Asynchronous API (Recommended)
 
 ```python
 import asyncio
 from xiangxinai import AsyncXiangxinAI
 
 async def main():
-    # 使用异步上下文管理器
     async with AsyncXiangxinAI(api_key="your-api-key") as client:
-        # 异步检测提示词
-        result = await client.check_prompt("我想学习Python编程")
-        print(result.suggest_action)  # 输出: 通过
+        # Async prompt check
+        result = await client.check_prompt("I want to learn Python programming")
+        print(result.suggest_action)  # Output: pass
         
-        # 异步检测对话上下文
+        # Async conversation context check
         messages = [
-            {"role": "user", "content": "我想学习化学"},
-            {"role": "assistant", "content": "化学是很有趣的学科，您想了解哪个方面？"},
-            {"role": "user", "content": "教我制作爆炸物的反应"}
+            {"role": "user", "content": "I want to learn chemistry"},
+            {"role": "assistant", "content": "Chemistry is an interesting subject. What part would you like to learn?"},
+            {"role": "user", "content": "Teach me reactions for making explosives"}
         ]
         result = await client.check_conversation(messages)
         print(result.overall_risk_level)
 
-# 运行异步函数
 asyncio.run(main())
 ```
 
-### 并发处理
+### Concurrent Processing
 
 ```python
 import asyncio
@@ -101,57 +102,57 @@ from xiangxinai import AsyncXiangxinAI
 
 async def batch_check():
     async with AsyncXiangxinAI(api_key="your-api-key") as client:
-        # 并发处理多个请求
+        # Handle multiple requests concurrently
         tasks = [
-            client.check_prompt("内容1"),
-            client.check_prompt("内容2"),
-            client.check_prompt("内容3")
+            client.check_prompt("Content 1"),
+            client.check_prompt("Content 2"),
+            client.check_prompt("Content 3")
         ]
         results = await asyncio.gather(*tasks)
         
         for i, result in enumerate(results):
-            print(f"内容{i+1}: {result.overall_risk_level}")
+            print(f"Content {i+1}: {result.overall_risk_level}")
 
 asyncio.run(batch_check())
 ```
 
-### 多模态图片检测
+### Multimodal Image Detection
 
-支持多模态检测功能，支持图片内容安全检测，可以结合提示词文本的语义和图片内容语义分析得出是否安全。
+Supports multimodal detection for image content safety. The system analyzes both text prompt semantics and image semantics for risk.
 
 ```python
 from xiangxinai import XiangxinAI
 
 client = XiangxinAI(api_key="your-api-key")
 
-# 检测单张图片（本地文件）
+# Check a single local image
 result = client.check_prompt_image(
-    prompt="这个图片安全吗？",
+    prompt="Is this image safe?",
     image="/path/to/image.jpg"
 )
 print(result.overall_risk_level)
 print(result.suggest_action)
 
-# 检测单张图片（网络URL）
+# Check an image from URL
 result = client.check_prompt_image(
-    prompt="",  # prompt可以为空
+    prompt="",  # prompt can be empty
     image="https://example.com/image.jpg"
 )
 
-# 检测多张图片
+# Check multiple images
 images = [
     "/path/to/image1.jpg",
     "https://example.com/image2.jpg",
     "/path/to/image3.png"
 ]
 result = client.check_prompt_images(
-    prompt="这些图片都安全吗？",
+    prompt="Are all these images safe?",
     images=images
 )
 print(result.overall_risk_level)
 ```
 
-异步版本：
+Async version:
 
 ```python
 import asyncio
@@ -159,17 +160,17 @@ from xiangxinai import AsyncXiangxinAI
 
 async def check_images():
     async with AsyncXiangxinAI(api_key="your-api-key") as client:
-        # 异步检测单张图片
+        # Async check for a single image
         result = await client.check_prompt_image(
-            prompt="这个图片安全吗？",
+            prompt="Is this image safe?",
             image="/path/to/image.jpg"
         )
         print(result.overall_risk_level)
 
-        # 异步检测多张图片
+        # Async check for multiple images
         images = ["/path/to/image1.jpg", "/path/to/image2.jpg"]
         result = await client.check_prompt_images(
-            prompt="这些图片都安全吗？",
+            prompt="Are these images safe?",
             images=images
         )
         print(result.overall_risk_level)
@@ -177,150 +178,144 @@ async def check_images():
 asyncio.run(check_images())
 ```
 
-### 私有化部署
+### On-Premise Deployment
 
 ```python
-# 同步客户端连接本地部署的服务
+# Sync client connecting to local deployment
 client = XiangxinAI(
     api_key="your-local-api-key",
-    base_url="http://localhost:5000/v1"  # 本地部署地址
+    base_url="http://localhost:5000/v1"
 )
 
-# 异步客户端连接本地部署的服务
+# Async client connecting to local deployment
 async with AsyncXiangxinAI(
     api_key="your-local-api-key",
     base_url="http://localhost:5000/v1"
 ) as client:
-    result = await client.check_prompt("测试内容")
+    result = await client.check_prompt("Test content")
 ```
 
-## API参考
+## API Reference
 
-### XiangxinAI类（同步）
+### XiangxinAI Class (Synchronous)
 
-#### 初始化参数
+#### Initialization Parameters
 
-- `api_key` (str): API密钥
-- `base_url` (str): API基础URL，默认为云端地址
-- `timeout` (int): 请求超时时间，默认30秒
-- `max_retries` (int): 最大重试次数，默认3次
+* `api_key` (str): API key
+* `base_url` (str): Base API URL, defaults to the cloud endpoint
+* `timeout` (int): Request timeout, default 30 seconds
+* `max_retries` (int): Maximum retry count, default 3
 
-#### 方法
+#### Methods
 
-##### check_prompt(content: str) -> GuardrailResponse
+##### check_prompt(content: str, user_id: Optional[str] = None) -> GuardrailResponse
 
-检测单个提示词的安全性。
+Checks the safety of a single prompt.
 
-**参数:**
-- `content`: 要检测的文本内容
+**Parameters:**
 
-**返回:** `GuardrailResponse` 对象
+* `content`: Text content to be checked
+* `user_id`: Optional tenant user ID for per-user risk control and auditing
 
-##### check_conversation(messages: List[Message]) -> GuardrailResponse
+**Returns:** `GuardrailResponse` object
 
-检测对话上下文的安全性（核心功能）。
+##### check_conversation(messages: List[Message], model: str = "Xiangxin-Guardrails-Text", user_id: Optional[str] = None) -> GuardrailResponse
 
-**参数:**
-- `messages`: 消息列表，每个消息包含 `role` 和 `content` 字段
+Checks conversation context safety (core feature).
 
-**返回:** `GuardrailResponse` 对象
+**Parameters:**
 
-### AsyncXiangxinAI类（异步）
+* `messages`: List of messages, each containing `role` and `content`
+* `model`: Model name (default: "Xiangxin-Guardrails-Text")
+* `user_id`: Optional tenant user ID
 
-#### 初始化参数
+**Returns:** `GuardrailResponse` object
 
-与同步版本相同。
+### AsyncXiangxinAI Class (Asynchronous)
 
-#### 方法
+Same initialization parameters as the synchronous version.
+
+#### Methods
 
 ##### async check_prompt(content: str) -> GuardrailResponse
 
-异步检测单个提示词的安全性。
-
-**参数:**
-- `content`: 要检测的文本内容
-
-**返回:** `GuardrailResponse` 对象
+Asynchronously checks a single prompt.
 
 ##### async check_conversation(messages: List[Message]) -> GuardrailResponse
 
-异步检测对话上下文的安全性（核心功能）。
-
-**参数:**
-- `messages`: 消息列表，每个消息包含 `role` 和 `content` 字段
-
-**返回:** `GuardrailResponse` 对象
+Asynchronously checks conversation context safety (core feature).
 
 ##### async health_check() -> Dict[str, Any]
 
-异步检查API服务健康状态。
+Checks API service health.
 
 ##### async get_models() -> Dict[str, Any]
 
-异步获取可用模型列表。
+Retrieves available model list.
 
 ##### async close()
 
-关闭异步会话（在使用完毕后调用，或使用 `async with` 自动管理）。
+Closes async session (automatically handled with `async with`).
 
-### GuardrailResponse类
+### GuardrailResponse Class
 
-检测结果响应对象。
+Represents detection results.
 
-#### 属性
+#### Attributes
 
-- `id`: 请求唯一标识
-- `result.compliance.risk_level`: 合规风险等级
-- `result.security.risk_level`: 安全风险等级
-- `result.data.risk_level`: 数据防泄漏风险等级（v2.4.0新增）
-- `result.data.categories`: 检测到的敏感数据类型列表（v2.4.0新增）
-- `overall_risk_level`: 综合风险等级（无风险/低风险/中风险/高风险）
-- `suggest_action`: 建议动作（通过/阻断/代答）
-- `suggest_answer`: 建议回答内容（可选，数据防泄漏时包含脱敏后内容）
+* `id`: Unique request ID
+* `result.compliance.risk_level`: Compliance risk level
+* `result.security.risk_level`: Security risk level
+* `result.data.risk_level`: Data leak risk level (added in v2.4.0)
+* `result.data.categories`: Detected sensitive data types (added in v2.4.0)
+* `overall_risk_level`: Overall risk level (none / low / medium / high)
+* `suggest_action`: Suggested action (pass / block / substitute)
+* `suggest_answer`: Suggested response (optional, includes redacted content if applicable)
+* `score`: Confidence score of the results
 
-#### 便利方法
+#### Helper Methods
 
-- `is_safe`: 判断内容是否安全
-- `is_blocked`: 判断内容是否被阻断
-- `has_substitute`: 判断是否有代答
-- `all_categories`: 获取所有风险类别
+* `is_safe`: Whether the content is safe
+* `is_blocked`: Whether the content is blocked
+* `has_substitute`: Whether a substitute answer is provided
+* `all_categories`: Get all detected risk categories
 
-## 安全检测能力
+## Safety Detection Capabilities
 
-### 风险等级
+### Risk Levels
 
-- **高风险**: 敏感政治话题、损害国家形象、暴力犯罪、提示词攻击
-- **中风险**: 一般政治话题、伤害未成年人、违法犯罪、色情
-- **低风险**: 歧视内容、辱骂、侵犯个人隐私、商业违法违规
-- **无风险**: 无风险内容
+* **High Risk:** Sensitive political topics, national image damage, violent crime, prompt attacks
+* **Medium Risk:** General political topics, harm to minors, illegal acts, sexual content
+* **Low Risk:** Hate speech, insults, privacy violations, commercial misconduct
+* **No Risk:** Safe content
 
-### 处理策略
+### Handling Strategies
 
-- **高风险**: 建议拒答
-- **中风险**: 建议代答，使用预设安全回复
-- **低风险**: 建议代答或根据实际业务情况处理
-- **无风险**: 建议通过
+* **High Risk:** Recommend blocking
+* **Medium Risk:** Recommend substitution with a safe reply
+* **Low Risk:** Recommend substitution or business-dependent handling
+* **No Risk:** Recommend pass
 
-## 错误处理
+## Error Handling
 
-### 同步错误处理
+### Synchronous Error Handling
 
 ```python
 from xiangxinai import XiangxinAI, AuthenticationError, ValidationError, RateLimitError
 
 try:
-    result = client.check_prompt("测试内容")
+    result = client.check_prompt("Test content")
 except AuthenticationError:
-    print("API密钥无效")
+    print("Invalid API key")
 except ValidationError as e:
-    print(f"输入验证失败: {e}")
+    print(f"Input validation failed: {e}")
 except RateLimitError:
-    print("请求频率限制")
+    print("Rate limit exceeded")
 except Exception as e:
-    print(f"其他错误: {e}")
+    print(f"Other error: {e}")
 ```
 
-### 异步错误处理
+### Asynchronous Error Handling
 
 ```python
 import asyncio
@@ -329,52 +324,54 @@ from xiangxinai import AsyncXiangxinAI, AuthenticationError, ValidationError, Ra
 async def safe_check():
     try:
         async with AsyncXiangxinAI(api_key="your-api-key") as client:
-            result = await client.check_prompt("测试内容")
+            result = await client.check_prompt("Test content")
             return result
     except AuthenticationError:
-        print("API密钥无效")
+        print("Invalid API key")
     except ValidationError as e:
-        print(f"输入验证失败: {e}")
+        print(f"Input validation failed: {e}")
     except RateLimitError:
-        print("请求频率限制")
+        print("Rate limit exceeded")
     except Exception as e:
-        print(f"其他错误: {e}")
+        print(f"Other error: {e}")
 
 asyncio.run(safe_check())
 ```
 
-## 开发
+## Development
 
 ```bash
-# 克隆项目
+# Clone the project
 git clone https://github.com/xiangxinai/xiangxin-guardrails
 cd xiangxin-guardrails/client
 
-# 安装开发依赖
+# Install dev dependencies
 pip install -e ".[dev]"
 
-# 运行测试
+# Run tests
 pytest
 
-# 代码格式化
+# Code formatting
 black xiangxinai
 isort xiangxinai
 
-# 类型检查
+# Type checking
 mypy xiangxinai
 ```
 
-## 许可证
+## License
 
-本项目基于 [Apache 2.0](https://opensource.org/licenses/Apache-2.0) 许可证开源。
+This project is open-sourced under the [Apache 2.0](https://opensource.org/licenses/Apache-2.0) license.
 
-## 支持
+## Support
 
-- 📧 技术支持: wanglei@xiangxinai.cn
-- 🌐 官方网站: https://xiangxinai.cn
-- 📖 文档: https://docs.xiangxinai.cn
-- 🐛 问题反馈: https://github.com/xiangxinai/xiangxin-guardrails/issues
+* 📧 Technical Support: [wanglei@xiangxinai.cn](mailto:wanglei@xiangxinai.cn)
+* 🌐 Official Website: [https://xiangxinai.cn](https://xiangxinai.cn)
+* 📖 Documentation: [https://docs.xiangxinai.cn](https://docs.xiangxinai.cn)
+* 🐛 Issue Tracker: [https://github.com/xiangxinai/xiangxin-guardrails/issues](https://github.com/xiangxinai/xiangxin-guardrails/issues)
 
 ---
 
-Made with ❤️ by [象信AI](https://xiangxinai.cn)
+Made with ❤️ by [Xiangxin AI](https://xiangxinai.cn)
+
+---

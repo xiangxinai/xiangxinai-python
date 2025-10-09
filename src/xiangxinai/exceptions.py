@@ -1,33 +1,33 @@
 """
-异常定义
+Exception definition
 """
 
 
 class XiangxinAIError(Exception):
-    """象信AI安全护栏基础异常类"""
+    """Xiangxin AI guardrails base exception class"""
     pass
 
 
 class AuthenticationError(XiangxinAIError):
-    """认证错误"""
+    """Authentication error"""
     pass
 
 
 class RateLimitError(XiangxinAIError):
-    """速率限制错误"""
+    """Rate limit error"""
     pass
 
 
 class ValidationError(XiangxinAIError):
-    """输入验证错误"""
+    """Input validation error"""
     pass
 
 
 class NetworkError(XiangxinAIError):
-    """网络错误"""
+    """Network error"""
     pass
 
 
 class ServerError(XiangxinAIError):
-    """服务器错误"""
+    """Server error"""
     pass

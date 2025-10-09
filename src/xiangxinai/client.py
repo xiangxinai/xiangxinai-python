@@ -1,5 +1,5 @@
 """
-象信AI安全护栏客户端
+Xiangxin AI guardrails client
 """
 import requests
 import time
@@ -17,26 +17,26 @@ from .exceptions import (
 
 
 class XiangxinAI:
-    """象信AI安全护栏客户端 - 基于LLM的上下文感知AI安全护栏
+    """Xiangxin AI guardrails client - An LLM-based context-aware AI guardrail that understands conversation context for security, safety and data leakage detection.
     
-    这个客户端提供了与象信AI安全护栏API交互的简单接口。
-    护栏采用上下文感知技术，能够理解对话上下文进行安全检测。
+    This client provides a simple interface for interacting with the Xiangxin AI guardrails API.
+    The guardrail uses context-aware technology to understand the conversation context for security, safety and data leakage detection.
     
     Args:
-        api_key: API密钥
-        base_url: API基础URL，默认为云端服务
-        timeout: 请求超时时间（秒）
-        max_retries: 最大重试次数
+        api_key: API key
+        base_url: API base URL, default to cloud service
+        timeout: Request timeout (seconds)
+        max_retries: Maximum number of retries
         
     Example:
         >>> client = XiangxinAI(api_key="your-api-key")
-        >>> # 检测提示词
-        >>> result = client.check_prompt("用户问题")
-        >>> # 检测对话上下文
-        >>> messages = [{"role": "user", "content": "问题"}, {"role": "assistant", "content": "回答"}]
+        >>> # Check prompt
+        >>> result = client.check_prompt("The user's question")
+        >>> # Check conversation context
+        >>> messages = [{"role": "user", "content": "The user's question"}, {"role": "assistant", "content": "The assistant's answer"}]
         >>> result = client.check_conversation(messages)
-        >>> print(result.overall_risk_level)  # "高风险/中风险/低风险/无风险"
-        >>> print(result.suggest_action)  # "通过/阻断/代答"
+        >>> print(result.overall_risk_level)  # "high_risk/medium_risk/low_risk/no_risk"
+        >>> print(result.suggest_action)  # "pass/reject/replace"
     """
     
     def __init__(
@@ -55,7 +55,7 @@ class XiangxinAI:
         self._session.headers.update({
             "Authorization": f"Bearer {api_key}",
             "Content-Type": "application/json",
-            "User-Agent": f"xiangxinai-python/2.4.0"
+            "User-Agent": f"xiangxinai-python/2.6.1"
         })
     
     def _create_safe_response(self) -> GuardrailResponse:
@@ -64,60 +64,67 @@ class XiangxinAI:
             id="guardrails-safe-default",
             result=GuardrailResult(
                 compliance=ComplianceResult(
-                    risk_level="无风险",
+                    risk_level="no_risk",
                     categories=[]
                 ),
                 security=SecurityResult(
-                    risk_level="无风险", 
+                    risk_level="no_risk", 
+                    categories=[]
+                )
+                data=DataSecurityResult(
+                    risk_level="no_risk",
                     categories=[]
                 )
             ),
-            overall_risk_level="无风险",
-            suggest_action="通过",
-            suggest_answer=None
+            overall_risk_level="no_risk",
+            suggest_action="pass",
+            suggest_answer=None,
+            score=1.0
         )
     
     def check_prompt(
         self,
-        content: str
+        content: str,
+        user_id: Optional[str] = None
     ) -> GuardrailResponse:
-        """检测用户输入的安全性
+        """Check the security of user input
 
         Args:
-            content: 要检测的用户输入内容
+            content: The user input content to be checked
+            user_id: Optional, tenant AI application user ID, for user-level risk control and audit tracking
 
         Returns:
-            GuardrailResponse: 检测结果，格式为：
+            GuardrailResponse: The detection result, format as:
             {
                 "id": "guardrails-xxx",
                 "result": {
                     "compliance": {
-                        "risk_level": "高风险/中风险/低风险/无风险",
-                        "categories": ["暴力犯罪", "敏感政治话题"]
+                        "risk_level": "high_risk/medium_risk/low_risk/no_risk",
+                        "categories": ["violent crime", "sensitive political topics"]
                     },
                     "security": {
-                        "risk_level": "高风险/中风险/低风险/无风险",
-                        "categories": ["提示词攻击"]
+                        "risk_level": "high_risk/medium_risk/low_risk/no_risk",
+                        "categories": ["prompt attack"]
                     }
                 },
-                "overall_risk_level": "高风险/中风险/低风险/无风险",
-                "suggest_action": "通过/阻断/代答",
-                "suggest_answer": "建议回答内容"
+                "overall_risk_level": "high_risk/medium_risk/low_risk/no_risk",
+                "suggest_action": "pass/reject/replace",
+                "suggest_answer": "Suggested response content"
             }
 
         Raises:
-            ValidationError: 输入参数无效
-            AuthenticationError: 认证失败
-            RateLimitError: 超出速率限制
-            XiangxinAIError: 其他API错误
+            ValidationError: Invalid input parameters
+            AuthenticationError: Authentication failed
+            RateLimitError: Exceeds rate limit
+            XiangxinAIError: Other API errors
 
         Example:
-            >>> result = client.check_prompt("我想学习编程")
-            >>> print(result.overall_risk_level)  # "无风险"
-            >>> print(result.suggest_action)  # "通过"
-            >>> print(result.result.compliance.risk_level)  # "安全"
+            >>> result = client.check_prompt("I want to learn programming")
+            >>> print(result.overall_risk_level)  # "no_risk"
+            >>> print(result.suggest_action)  # "pass"
+            >>> print(result.result.compliance.risk_level)  # "no_risk"
         """
-        # 如果content是空字符串，直接返回无风险
+        # If content is an empty string, return no risk
         if not content or not content.strip():
             return self._create_safe_response()
 
@@ -125,75 +132,81 @@ class XiangxinAI:
             "input": content.strip()
         }
 
+        if user_id:
+            request_data["xxai_app_user_id"] = user_id
+
         return self._make_request("POST", "/guardrails/input", request_data)
     
     def check_conversation(
         self,
         messages: List[Dict[str, str]],
-        model: str = "Xiangxin-Guardrails-Text"
+        model: str = "Xiangxin-Guardrails-Text",
+        user_id: Optional[str] = None
     ) -> GuardrailResponse:
-        """检测对话上下文的安全性 - 上下文感知检测
-        
-        这是护栏的核心功能，能够理解完整的对话上下文进行安全检测。
-        不是分别检测每条消息，而是分析整个对话的安全性。
-        
+        """Check the security of conversation context - context-aware detection
+
+        This is the core functionality of the guardrail, which can understand the complete conversation context for security detection.
+        It is not to detect each message separately, but to analyze the security of the entire conversation.
+        It is not to detect each message separately, but to analyze the security of the entire conversation.
+
         Args:
-            messages: 对话消息列表，包含用户和助手的完整对话
-                     每个消息包含role('user'或'assistant')和content
-            model: 使用的模型名称
+            messages: Conversation message list, containing the complete conversation between user and assistant
+                      Each message contains role('user' or 'assistant') and content
+            model: The name of the model used
+            user_id: Optional, tenant AI application user ID, for user-level risk control and audit tracking
             
         Returns:
-            GuardrailResponse: 基于对话上下文的检测结果，格式与check_prompt相同：
+            GuardrailResponse: The detection result based on conversation context, format as:
             {
                 "id": "guardrails-xxx",
                 "result": {
                     "compliance": {
-                        "risk_level": "高风险/中风险/低风险/无风险",
-                        "categories": ["暴力犯罪", "敏感政治话题"]
+                        "risk_level": "high_risk/medium_risk/low_risk/no_risk",
+                        "categories": ["violent crime", "sensitive political topics"]
                     },
                     "security": {
-                        "risk_level": "高风险/中风险/低风险/无风险",
-                        "categories": ["提示词攻击"]
+                        "risk_level": "high_risk/medium_risk/low_risk/no_risk",
+                        "categories": ["prompt attack"]
                     }
                 },
-                "overall_risk_level": "高风险/中风险/低风险/无风险",
-                "suggest_action": "通过/阻断/代答",
-                "suggest_answer": "建议回答内容"
+                "overall_risk_level": "high_risk/medium_risk/low_risk/no_risk",
+                "suggest_action": "pass/reject/replace",
+                "suggest_answer": "Suggested response content"
             }
             
         Example:
-            >>> # 检测用户问题和助手回答的对话安全性
+            >>> # Check the security of conversation context between user and assistant
             >>> messages = [
-            ...     {"role": "user", "content": "用户问题"},
-            ...     {"role": "assistant", "content": "助手回答"}
+            ...     {"role": "user", "content": "The user's question"},
+            ...     {"role": "assistant", "content": "The assistant's answer"}
             ... ]
-            >>> print(result.overall_risk_level)  # "无风险"
+            >>> print(result.overall_risk_level)  # "no_risk"
             >>> result = client.check_conversation(messages)
-            >>> print(result.suggest_action)  # 基于对话上下文的建议
+            >>> print(result.suggest_action)  # Suggested action based on conversation context
         """
         if not messages:
             raise ValidationError("Messages cannot be empty")
         
-        # 验证消息格式
+        # Validate message format
         validated_messages = []
-        all_empty = True  # 标记是否所有content都为空
+        all_empty = True  # Mark whether all content are empty
         
         for msg in messages:
             if not isinstance(msg, dict) or "role" not in msg or "content" not in msg:
                 raise ValidationError("Each message must have 'role' and 'content' fields")
             
             content = msg["content"]
-            # 检查是否有非空content
+            # Check if there is non-empty content
             if content and content.strip():
                 all_empty = False
-                # 只添加非空消息到validated_messages
+                # Only add non-empty messages to validated_messages
                 validated_messages.append(Message(role=msg["role"], content=content))
         
-        # 如果所有messages的content都是空的，直接返回无风险
+        # If all messages' content are empty, return no risk
         if all_empty:
             return self._create_safe_response()
         
-        # 确保至少有一条消息
+        # Ensure at least one message
         if not validated_messages:
             return self._create_safe_response()
         
@@ -201,57 +214,65 @@ class XiangxinAI:
             model=model,
             messages=validated_messages
         )
-        
-        return self._make_request("POST", "/guardrails", request_data.dict())
+
+        request_dict = request_data.dict()
+        if user_id:
+            if "extra_body" not in request_dict:
+                request_dict["extra_body"] = {}
+            request_dict["extra_body"]["xxai_app_user_id"] = user_id
+
+        return self._make_request("POST", "/guardrails", request_dict)
 
     def check_response_ctx(
         self,
         prompt: str,
-        response: str
+        response: str,
+        user_id: Optional[str] = None
     ) -> GuardrailResponse:
-        """检测用户输入和模型输出的安全性 - 上下文感知检测
+        """Check the security of user input and model output - context-aware detection
 
-        这是护栏的核心功能，能够理解用户输入和模型输出的上下文进行安全检测。
-        护栏会基于用户问题的上下文来检测模型输出是否安全合规。
+        This is the core functionality of the guardrail, which can understand the context of user input and model output for security detection.
+        The guardrail will detect whether the model output is safe and compliant based on the context of the user's question.
 
         Args:
-            prompt: 用户输入的文本内容，用于让护栏理解上下文语意
-            response: 模型输出的文本内容，实际检测对象
+            prompt: The user input text content, used to help the guardrail understand the context semantics
+            response: The model output text content, actual detection object
+            user_id: Optional, tenant AI application user ID, for user-level risk control and audit tracking
 
         Returns:
-            GuardrailResponse: 基于上下文的检测结果，格式与check_prompt相同：
+            GuardrailResponse: The detection result based on context, format as:
             {
                 "id": "guardrails-xxx",
                 "result": {
                     "compliance": {
-                        "risk_level": "高风险/中风险/低风险/无风险",
-                        "categories": ["暴力犯罪", "敏感政治话题"]
+                        "risk_level": "high_risk/medium_risk/low_risk/no_risk",
+                        "categories": ["violent crime", "sensitive political topics"]
                     },
                     "security": {
-                        "risk_level": "高风险/中风险/低风险/无风险",
-                        "categories": ["提示词攻击"]
+                        "risk_level": "high_risk/medium_risk/low_risk/no_risk",
+                        "categories": ["prompt attack"]
                     }
                 },
-                "overall_risk_level": "高风险/中风险/低风险/无风险",
-                "suggest_action": "通过/阻断/代答",
-                "suggest_answer": "建议回答内容"
+                "overall_risk_level": "high_risk/medium_risk/low_risk/no_risk",
+                "suggest_action": "pass/reject/replace",
+                "suggest_answer": "Suggested response content"
             }
 
         Raises:
-            ValidationError: 输入参数无效
-            AuthenticationError: 认证失败
-            RateLimitError: 超出速率限制
-            XiangxinAIError: 其他API错误
+            ValidationError: Invalid input parameters
+            AuthenticationError: Authentication failed
+            RateLimitError: Exceeds rate limit
+            XiangxinAIError: Other API errors
 
         Example:
             >>> result = client.check_response_ctx(
-            ...     "教我做饭",
-            ...     "我可以教你做一些简单的家常菜"
+            ...     "I want to learn programming",
+            ...     "I can teach you how to make simple home cooking"
             ... )
-            >>> print(result.overall_risk_level)  # "无风险"
-            >>> print(result.suggest_action)  # "通过"
+            >>> print(result.overall_risk_level)  # "no_risk"
+            >>> print(result.suggest_action)  # "pass"
         """
-        # 如果prompt或response是空字符串，直接返回无风险
+        # If prompt or response is an empty string, return no risk
         if (not prompt or not prompt.strip()) and (not response or not response.strip()):
             return self._create_safe_response()
 
@@ -260,24 +281,27 @@ class XiangxinAI:
             "output": response.strip() if response else ""
         }
 
+        if user_id:
+            request_data["xxai_app_user_id"] = user_id
+
         return self._make_request("POST", "/guardrails/output", request_data)
 
     def _encode_base64_from_path(self, image_path: str) -> str:
-        """将图片编码为base64格式
+        """Encode image to base64 format
 
         Args:
-            image_path: 图片的本地路径或HTTP(S)链接
+            image_path: The local path or HTTP(S) link of the image
 
         Returns:
-            str: base64编码的图片内容
+            str: The base64 encoded image content
         """
         if image_path.startswith(('http://', 'https://')):
-            # 从URL获取图片
+            # Get image from URL
             response = self._session.get(image_path, timeout=self.timeout)
             response.raise_for_status()
             return base64.b64encode(response.content).decode('utf-8')
         else:
-            # 从本地文件读取
+            # Read image from local file
             with open(image_path, 'rb') as f:
                 return base64.b64encode(f.read()).decode('utf-8')
 
@@ -285,30 +309,32 @@ class XiangxinAI:
         self,
         prompt: str,
         image: str,
-        model: str = "Xiangxin-Guardrails-VL"
+        model: str = "Xiangxin-Guardrails-VL",
+        user_id: Optional[str] = None
     ) -> GuardrailResponse:
-        """检测文本提示词和图片的安全性 - 多模态检测
+        """Check the security of text prompt and image - multi-modal detection
 
-        结合文本语义和图片内容进行安全检测。
+        Combine text semantics and image content for security detection.
 
         Args:
-            prompt: 文本提示词（可以为空）
-            image: 图片文件的本地路径或HTTP(S)链接（不能为空）
-            model: 使用的模型名称，默认为多模态模型
+            prompt: Text prompt (can be empty)
+            image: The local path or HTTP(S) link of the image (cannot be empty)
+            model: The name of the model used, default to multi-modal model
+            user_id: Optional, tenant AI application user ID, for user-level risk control and audit tracking
 
         Returns:
-            GuardrailResponse: 检测结果
+            GuardrailResponse: The detection result
 
         Raises:
-            ValidationError: 输入参数无效
-            AuthenticationError: 认证失败
-            RateLimitError: 超出速率限制
-            XiangxinAIError: 其他API错误
+            ValidationError: Invalid input parameters
+            AuthenticationError: Authentication failed
+            RateLimitError: Exceeds rate limit
+            XiangxinAIError: Other API errors
 
         Example:
-            >>> # 检测本地图片
-            >>> result = client.check_prompt_image("这个图片安全吗？", "/path/to/image.jpg")
-            >>> # 检测网络图片
+            >>> # Check local image
+            >>> result = client.check_prompt_image("Is this image safe?", "/path/to/image.jpg")
+            >>> # Check network image
             >>> result = client.check_prompt_image("", "https://example.com/image.jpg")
             >>> print(result.overall_risk_level)
         """
@@ -339,46 +365,54 @@ class XiangxinAI:
             messages=messages
         )
 
-        return self._make_request("POST", "/guardrails", request_data.dict())
+        request_dict = request_data.dict()
+        if user_id:
+            if "extra_body" not in request_dict:
+                request_dict["extra_body"] = {}
+            request_dict["extra_body"]["xxai_app_user_id"] = user_id
+
+        return self._make_request("POST", "/guardrails", request_dict)
 
     def check_prompt_images(
         self,
         prompt: str,
         images: List[str],
-        model: str = "Xiangxin-Guardrails-VL"
+        model: str = "Xiangxin-Guardrails-VL",
+        user_id: Optional[str] = None
     ) -> GuardrailResponse:
-        """检测文本提示词和多张图片的安全性 - 多模态检测
+        """Check the security of text prompt and multiple images - multi-modal detection
 
-        结合文本语义和多张图片内容进行安全检测。
+        Combine text semantics and multiple image content for security detection.
 
         Args:
-            prompt: 文本提示词（可以为空）
-            images: 图片文件的本地路径或HTTP(S)链接列表（不能为空）
-            model: 使用的模型名称，默认为多模态模型
+            prompt: Text prompt (can be empty)
+            images: The local path or HTTP(S) link list of the images (cannot be empty)
+            model: The name of the model used, default to multi-modal model
+            user_id: Optional, tenant AI application user ID, for user-level risk control and audit tracking
 
         Returns:
-            GuardrailResponse: 检测结果
+            GuardrailResponse: The detection result
 
         Raises:
-            ValidationError: 输入参数无效
-            AuthenticationError: 认证失败
-            RateLimitError: 超出速率限制
-            XiangxinAIError: 其他API错误
+            ValidationError: Invalid input parameters
+            AuthenticationError: Authentication failed
+            RateLimitError: Exceeds rate limit
+            XiangxinAIError: Other API errors
 
         Example:
             >>> images = ["/path/to/image1.jpg", "https://example.com/image2.jpg"]
-            >>> result = client.check_prompt_images("这些图片安全吗？", images)
+            >>> result = client.check_prompt_images("Are these images safe?", images)
             >>> print(result.overall_risk_level)
         """
         if not images or len(images) == 0:
             raise ValidationError("Images list cannot be empty")
 
-        # 构建消息内容
+        # Build message content
         content = []
         if prompt and prompt.strip():
             content.append({"type": "text", "text": prompt.strip()})
 
-        # 编码所有图片
+        # Encode all images
         for image_path in images:
             try:
                 image_base64 = self._encode_base64_from_path(image_path)
@@ -398,21 +432,27 @@ class XiangxinAI:
             messages=messages
         )
 
-        return self._make_request("POST", "/guardrails", request_data.dict())
+        request_dict = request_data.dict()
+        if user_id:
+            if "extra_body" not in request_dict:
+                request_dict["extra_body"] = {}
+            request_dict["extra_body"]["xxai_app_user_id"] = user_id
+
+        return self._make_request("POST", "/guardrails", request_dict)
 
     def health_check(self) -> Dict[str, Any]:
-        """检查API服务健康状态
+        """Check API service health status
         
         Returns:
-            Dict: 健康状态信息
+            Dict: Health status information
         """
         return self._make_request("GET", "/guardrails/health")
     
     def get_models(self) -> Dict[str, Any]:
-        """获取可用模型列表
+        """Get available model list
         
         Returns:
-            Dict: 模型列表信息
+            Dict: Model list information
         """
         return self._make_request("GET", "/guardrails/models")
     
@@ -422,18 +462,18 @@ class XiangxinAI:
         endpoint: str,
         data: Optional[Dict[str, Any]] = None
     ) -> Any:
-        """发送HTTP请求
+        """Send HTTP request
         
         Args:
-            method: HTTP方法
-            endpoint: API端点
-            data: 请求数据
+            method: HTTP method
+            endpoint: API endpoint
+            data: Request data
             
         Returns:
-            响应数据
+            Response data
             
         Raises:
-            XiangxinAIError: API请求失败
+            XiangxinAIError: API request failed
         """
         url = f"{self.base_url}{endpoint}"
         
@@ -446,11 +486,11 @@ class XiangxinAI:
                 else:
                     raise XiangxinAIError(f"Unsupported HTTP method: {method}")
                 
-                # 处理HTTP状态码
+                # Handle HTTP status code
                 if response.status_code == 200:
                     result_data = response.json()
 
-                    # 如果是护栏检测请求，返回结构化响应
+                    # If it is a guardrail detection request, return structured response
                     if (endpoint in ["/guardrails", "/guardrails/input", "/guardrails/output"]) and isinstance(result_data, dict):
                         return GuardrailResponse(**result_data)
 
@@ -465,7 +505,7 @@ class XiangxinAI:
                 
                 elif response.status_code == 429:
                     if attempt < self.max_retries:
-                        # 指数退避重试
+                        # Exponential backoff retry
                         wait_time = (2 ** attempt) + 1
                         time.sleep(wait_time)
                         continue
@@ -496,7 +536,7 @@ class XiangxinAI:
                 raise XiangxinAIError("Connection error")
             
             except (AuthenticationError, ValidationError, RateLimitError):
-                # 这些错误不需要重试
+                # These errors do not need to be retried
                 raise
             
             except Exception as e:
@@ -506,34 +546,33 @@ class XiangxinAI:
                 raise XiangxinAIError(f"Unexpected error: {str(e)}")
     
     def __enter__(self):
-        """上下文管理器入口"""
+        """Context manager entry"""
         return self
     
     def __exit__(self, exc_type, exc_val, exc_tb):
-        """上下文管理器出口"""
+        """Context manager exit"""
         if hasattr(self, '_session'):
             self._session.close()
 
 
 class AsyncXiangxinAI:
-    """象信AI安全护栏异步客户端 - 基于LLM的上下文感知AI安全护栏
+    """Xiangxin AI guardrails asynchronous client - An LLM-based context-aware AI guardrail that understands conversation context for security, safety and data leakage detection.
     
-    这个异步客户端提供了与象信AI安全护栏API交互的异步接口。
-    护栏采用上下文感知技术，能够理解对话上下文进行安全检测。
+    This asynchronous client provides an asynchronous interface for interacting with the Xiangxin AI guardrails API.
+    The guardrail uses context-aware technology to understand the conversation context for security, safety and data leakage detection.
     
     Args:
-        api_key: API密钥
-        base_url: API基础URL，默认为云端服务
-        timeout: 请求超时时间（秒）
-        max_retries: 最大重试次数
+        api_key: API key
+        base_url: API base URL, default to cloud service
+        timeout: Request timeout (seconds)
+        max_retries: Maximum number of retries
         
     Example:
         >>> async with AsyncXiangxinAI(api_key="your-api-key") as client:
-        ...     result = await client.check_prompt("用户问题")
+        ...     result = await client.check_prompt("The user's question")
         ...     print(result.overall_risk_level)
-        或:
         >>> client = AsyncXiangxinAI(api_key="your-api-key")
-        >>> result = await client.check_prompt("用户问题") 
+        >>> result = await client.check_prompt("The user's question") 
         >>> await client.close()
     """
     
@@ -553,11 +592,11 @@ class AsyncXiangxinAI:
         self._headers = {
             "Authorization": f"Bearer {api_key}",
             "Content-Type": "application/json",
-            "User-Agent": f"xiangxinai-python/2.4.0"
+            "User-Agent": f"xiangxinai-python/2.6.1"
         }
     
     async def _get_session(self) -> aiohttp.ClientSession:
-        """获取或创建aiohttp会话"""
+        """Get or create aiohttp session"""
         if self._session is None or self._session.closed:
             timeout = aiohttp.ClientTimeout(total=self.timeout)
             self._session = aiohttp.ClientSession(
@@ -567,48 +606,49 @@ class AsyncXiangxinAI:
         return self._session
     
     def _create_safe_response(self) -> GuardrailResponse:
-        """创建无风险的默认响应"""
+        """Create a safe default response"""
         return GuardrailResponse(
             id="guardrails-safe-default",
             result=GuardrailResult(
                 compliance=ComplianceResult(
-                    risk_level="无风险",
+                    risk_level="no_risk",
                     categories=[]
                 ),
                 security=SecurityResult(
-                    risk_level="无风险", 
+                    risk_level="no_risk", 
                     categories=[]
                 )
             ),
-            overall_risk_level="无风险",
-            suggest_action="通过",
+            overall_risk_level="no_risk",
+            suggest_action="pass",
             suggest_answer=None
         )
     
     async def check_prompt(
         self,
-        content: str
+        content: str,
+        user_id: Optional[str] = None
     ) -> GuardrailResponse:
-        """异步检测用户输入的安全性
+        """Asynchronously check the security of user input
 
         Args:
-            content: 要检测的用户输入内容
+            content: The user input content to be detected
 
         Returns:
-            GuardrailResponse: 检测结果，格式与同步版本相同
+            GuardrailResponse: The detection result, format as the same as the synchronous version
 
         Raises:
-            ValidationError: 输入参数无效
-            AuthenticationError: 认证失败
-            RateLimitError: 超出速率限制
-            XiangxinAIError: 其他API错误
+            ValidationError: Invalid input parameters
+            AuthenticationError: Authentication failed
+            RateLimitError: Exceeds rate limit
+            XiangxinAIError: Other API errors
 
         Example:
             >>> async with AsyncXiangxinAI("your-api-key") as client:
-            ...     result = await client.check_prompt("我想学习编程")
-            ...     print(result.overall_risk_level)  # "无风险"
+            ...     result = await client.check_prompt("I want to learn programming")
+            ...     print(result.overall_risk_level)  # "no_risk"
         """
-        # 如果content是空字符串，直接返回无风险
+        # If content is an empty string, return no risk
         if not content or not content.strip():
             return self._create_safe_response()
 
@@ -616,30 +656,34 @@ class AsyncXiangxinAI:
             "input": content.strip()
         }
 
+        if user_id:
+            request_data["xxai_app_user_id"] = user_id
+
         return await self._make_request("POST", "/guardrails/input", request_data)
     
     async def check_conversation(
         self,
         messages: List[Dict[str, str]],
-        model: str = "Xiangxin-Guardrails-Text"
+        model: str = "Xiangxin-Guardrails-Text",
+        user_id: Optional[str] = None
     ) -> GuardrailResponse:
-        """异步检测对话上下文的安全性 - 上下文感知检测
+        """Asynchronously check the security of conversation context - context-aware detection
         
-        这是护栏的核心功能，能够理解完整的对话上下文进行安全检测。
-        不是分别检测每条消息，而是分析整个对话的安全性。
+        This is the core functionality of the guardrail, which can understand the complete conversation context for security detection.
+        It is not to detect each message separately, but to analyze the security of the entire conversation.
         
         Args:
-            messages: 对话消息列表，包含用户和助手的完整对话
-                     每个消息包含role('user'或'assistant')和content
-            model: 使用的模型名称
+            messages: Conversation message list, containing the complete conversation between user and assistant
+                      Each message contains role('user' or 'assistant') and content
+            model: The name of the model used
             
         Returns:
-            GuardrailResponse: 基于对话上下文的检测结果
+            GuardrailResponse: The detection result based on conversation context, format as the same as the synchronous version
             
         Example:
             >>> messages = [
-            ...     {"role": "user", "content": "用户问题"},
-            ...     {"role": "assistant", "content": "助手回答"}
+            ...     {"role": "user", "content": "The user's question"},
+            ...     {"role": "assistant", "content": "The assistant's answer"}
             ... ]
             >>> async with AsyncXiangxinAI("your-api-key") as client:
             ...     result = await client.check_conversation(messages)
@@ -648,26 +692,26 @@ class AsyncXiangxinAI:
         if not messages:
             raise ValidationError("Messages cannot be empty")
         
-        # 验证消息格式
+        # Validate message format
         validated_messages = []
-        all_empty = True  # 标记是否所有content都为空
+        all_empty = True  # Mark whether all content are empty
         
         for msg in messages:
             if not isinstance(msg, dict) or "role" not in msg or "content" not in msg:
                 raise ValidationError("Each message must have 'role' and 'content' fields")
             
             content = msg["content"]
-            # 检查是否有非空content
+            # Check if there is non-empty content
             if content and content.strip():
                 all_empty = False
-                # 只添加非空消息到validated_messages
+                # Only add non-empty messages to validated_messages
                 validated_messages.append(Message(role=msg["role"], content=content))
         
-        # 如果所有messages的content都是空的，直接返回无风险
+        # If all messages' content are empty, return no risk
         if all_empty:
             return self._create_safe_response()
         
-        # 确保至少有一条消息
+        # Ensure at least one message
         if not validated_messages:
             return self._create_safe_response()
         
@@ -675,35 +719,42 @@ class AsyncXiangxinAI:
             model=model,
             messages=validated_messages
         )
-        
-        return await self._make_request("POST", "/guardrails", request_data.dict())
+
+        request_dict = request_data.dict()
+        if user_id:
+            if "extra_body" not in request_dict:
+                request_dict["extra_body"] = {}
+            request_dict["extra_body"]["xxai_app_user_id"] = user_id
+
+        return await self._make_request("POST", "/guardrails", request_dict)
 
     async def check_response_ctx(
         self,
         prompt: str,
-        response: str
+        response: str,
+        user_id: Optional[str] = None
     ) -> GuardrailResponse:
-        """异步检测用户输入和模型输出的安全性 - 上下文感知检测
+        """Asynchronously check the security of user input and model output - context-aware detection
 
-        这是护栏的核心功能，能够理解用户输入和模型输出的上下文进行安全检测。
-        护栏会基于用户问题的上下文来检测模型输出是否安全合规。
+        This is the core functionality of the guardrail, which can understand the context of user input and model output for security detection.
+        The guardrail will detect whether the model output is safe and compliant based on the context of the user's question.
 
         Args:
-            prompt: 用户输入的文本内容，用于让护栏理解上下文语意
-            response: 模型输出的文本内容，实际检测对象
+            prompt: The user input text content, used to help the guardrail understand the context semantics
+            response: The model output text content, actual detection object
 
         Returns:
-            GuardrailResponse: 基于上下文的检测结果
+            GuardrailResponse: The detection result based on context, format as the same as the synchronous version
 
         Example:
             >>> async with AsyncXiangxinAI("your-api-key") as client:
             ...     result = await client.check_response_ctx(
-            ...         "教我做饭",
-            ...         "我可以教你做一些简单的家常菜"
+            ...         "I want to learn programming",
+            ...         "I can teach you how to make simple home-cooked meals"
             ...     )
             ...     print(result.overall_risk_level)
         """
-        # 如果prompt或response是空字符串，直接返回无风险
+        # If prompt or response is an empty string, return no risk
         if (not prompt or not prompt.strip()) and (not response or not response.strip()):
             return self._create_safe_response()
 
@@ -712,31 +763,34 @@ class AsyncXiangxinAI:
             "output": response.strip() if response else ""
         }
 
+        if user_id:
+            request_data["xxai_app_user_id"] = user_id
+
         return await self._make_request("POST", "/guardrails/output", request_data)
 
     async def _encode_base64_from_path_async(self, image_path: str) -> str:
-        """异步将图片编码为base64格式
+        """Asynchronously encode image to base64 format
 
         Args:
-            image_path: 图片的本地路径或HTTP(S)链接
+            image_path: The local path or HTTP(S) link of the image
 
         Returns:
-            str: base64编码的图片内容
+            str: The base64 encoded image content
         """
         if image_path.startswith(('http://', 'https://')):
-            # 从URL获取图片
+            # Get image from URL
             session = await self._get_session()
             async with session.get(image_path) as response:
                 response.raise_for_status()
                 content = await response.read()
                 return base64.b64encode(content).decode('utf-8')
         else:
-            # 从本地文件读取
+            # Read image from local file
             loop = asyncio.get_event_loop()
             return await loop.run_in_executor(None, self._encode_base64_from_file, image_path)
 
     def _encode_base64_from_file(self, file_path: str) -> str:
-        """从本地文件编码base64（用于异步执行）"""
+        """Encode base64 from local file (for asynchronous execution)"""
         with open(file_path, 'rb') as f:
             return base64.b64encode(f.read()).decode('utf-8')
 
@@ -744,35 +798,36 @@ class AsyncXiangxinAI:
         self,
         prompt: str,
         image: str,
-        model: str = "Xiangxin-Guardrails-VL"
+        model: str = "Xiangxin-Guardrails-VL",
+        user_id: Optional[str] = None
     ) -> GuardrailResponse:
-        """异步检测文本提示词和图片的安全性 - 多模态检测
+        """Asynchronously check the security of text prompt and image - multi-modal detection
 
-        结合文本语义和图片内容进行安全检测。
+        Combine text semantics and image content for security detection.
 
         Args:
-            prompt: 文本提示词（可以为空）
-            image: 图片文件的本地路径或HTTP(S)链接（不能为空）
-            model: 使用的模型名称，默认为多模态模型
+            prompt: Text prompt (can be empty)
+            image: The local path or HTTP(S) link of the image (cannot be empty)
+            model: The name of the model used, default to multi-modal model
 
         Returns:
-            GuardrailResponse: 检测结果
+            GuardrailResponse: The detection result
 
         Raises:
-            ValidationError: 输入参数无效
-            AuthenticationError: 认证失败
-            RateLimitError: 超出速率限制
-            XiangxinAIError: 其他API错误
+            ValidationError: Invalid input parameters
+            AuthenticationError: Authentication failed
+            RateLimitError: Exceeds rate limit
+            XiangxinAIError: Other API errors
 
         Example:
             >>> async with AsyncXiangxinAI("your-api-key") as client:
-            ...     result = await client.check_prompt_image("这个图片安全吗？", "/path/to/image.jpg")
+            ...     result = await client.check_prompt_image("Is this image safe?", "/path/to/image.jpg")
             ...     print(result.overall_risk_level)
         """
         if not image:
             raise ValidationError("Image path cannot be empty")
 
-        # 编码图片
+        # Encode image
         try:
             image_base64 = await self._encode_base64_from_path_async(image)
         except FileNotFoundError:
@@ -780,7 +835,7 @@ class AsyncXiangxinAI:
         except Exception as e:
             raise XiangxinAIError(f"Failed to encode image: {str(e)}")
 
-        # 构建消息
+        # Build message
         content = []
         if prompt and prompt.strip():
             content.append({"type": "text", "text": prompt.strip()})
@@ -802,41 +857,42 @@ class AsyncXiangxinAI:
         self,
         prompt: str,
         images: List[str],
-        model: str = "Xiangxin-Guardrails-VL"
+        model: str = "Xiangxin-Guardrails-VL",
+        user_id: Optional[str] = None
     ) -> GuardrailResponse:
-        """异步检测文本提示词和多张图片的安全性 - 多模态检测
+        """Asynchronously check the security of text prompt and multiple images - multi-modal detection
 
-        结合文本语义和多张图片内容进行安全检测。
+        Combine text semantics and multiple image content for security detection.
 
         Args:
-            prompt: 文本提示词（可以为空）
-            images: 图片文件的本地路径或HTTP(S)链接列表（不能为空）
-            model: 使用的模型名称，默认为多模态模型
+            prompt: Text prompt (can be empty)
+            images: The local path or HTTP(S) link list of the images (cannot be empty)
+            model: The name of the model used, default to multi-modal model
 
         Returns:
-            GuardrailResponse: 检测结果
+            GuardrailResponse: The detection result
 
         Raises:
-            ValidationError: 输入参数无效
-            AuthenticationError: 认证失败
-            RateLimitError: 超出速率限制
-            XiangxinAIError: 其他API错误
+            ValidationError: Invalid input parameters
+            AuthenticationError: Authentication failed
+            RateLimitError: Exceeds rate limit
+            XiangxinAIError: Other API errors
 
         Example:
             >>> images = ["/path/to/image1.jpg", "https://example.com/image2.jpg"]
             >>> async with AsyncXiangxinAI("your-api-key") as client:
-            ...     result = await client.check_prompt_images("这些图片安全吗？", images)
+            ...     result = await client.check_prompt_images("Are these images safe?", images)
             ...     print(result.overall_risk_level)
         """
         if not images or len(images) == 0:
             raise ValidationError("Images list cannot be empty")
 
-        # 构建消息内容
+        # Build message content
         content = []
         if prompt and prompt.strip():
             content.append({"type": "text", "text": prompt.strip()})
 
-        # 编码所有图片
+        # Encode all images
         for image_path in images:
             try:
                 image_base64 = await self._encode_base64_from_path_async(image_path)
@@ -856,21 +912,27 @@ class AsyncXiangxinAI:
             messages=messages
         )
 
-        return await self._make_request("POST", "/guardrails", request_data.dict())
+        request_dict = request_data.dict()
+        if user_id:
+            if "extra_body" not in request_dict:
+                request_dict["extra_body"] = {}
+            request_dict["extra_body"]["xxai_app_user_id"] = user_id
+
+        return await self._make_request("POST", "/guardrails", request_dict)
 
     async def health_check(self) -> Dict[str, Any]:
-        """异步检查API服务健康状态
+        """Asynchronously check API service health status
         
         Returns:
-            Dict: 健康状态信息
+            Dict: Health status information
         """
         return await self._make_request("GET", "/guardrails/health")
     
     async def get_models(self) -> Dict[str, Any]:
-        """异步获取可用模型列表
+        """Asynchronously get available model list
         
         Returns:
-            Dict: 模型列表信息
+            Dict: Model list information
         """
         return await self._make_request("GET", "/guardrails/models")
     
@@ -880,18 +942,18 @@ class AsyncXiangxinAI:
         endpoint: str,
         data: Optional[Dict[str, Any]] = None
     ) -> Any:
-        """发送异步HTTP请求
+        """Asynchronously send HTTP request
         
         Args:
-            method: HTTP方法
-            endpoint: API端点
-            data: 请求数据
+            method: HTTP method
+            endpoint: API endpoint
+            data: Request data
             
         Returns:
-            响应数据
+            Response data
             
         Raises:
-            XiangxinAIError: API请求失败
+            XiangxinAIError: API request failed
         """
         url = f"{self.base_url}{endpoint}"
         session = await self._get_session()
@@ -920,7 +982,7 @@ class AsyncXiangxinAI:
                 raise XiangxinAIError("Connection error")
             
             except (AuthenticationError, ValidationError, RateLimitError):
-                # 这些错误不需要重试
+                # These errors do not need to be retried
                 raise
             
             except Exception as e:
@@ -934,11 +996,11 @@ class AsyncXiangxinAI:
         response: aiohttp.ClientResponse, 
         endpoint: str
     ) -> Any:
-        """处理HTTP响应"""
+        """Handle HTTP response"""
         if response.status == 200:
             result_data = await response.json()
             
-            # 如果是护栏检测请求，返回结构化响应
+            # If it is a guardrail detection request, return structured response
             if (endpoint in ["/guardrails", "/guardrails/input", "/guardrails/output"]) and isinstance(result_data, dict):
                 return GuardrailResponse(**result_data)
             
@@ -953,8 +1015,8 @@ class AsyncXiangxinAI:
             raise ValidationError(f"Validation error: {error_detail}")
         
         elif response.status == 429:
-            # 指数退避重试
-            wait_time = (2 ** 0) + 1  # 第一次重试等待2秒
+            # Exponential backoff retry
+            wait_time = (2 ** 0) + 1  # First retry wait 2 seconds
             await asyncio.sleep(wait_time)
             raise RateLimitError("Rate limit exceeded")
         
@@ -971,14 +1033,14 @@ class AsyncXiangxinAI:
             )
     
     async def close(self):
-        """关闭异步会话"""
+        """Close asynchronous session"""
         if self._session and not self._session.closed:
             await self._session.close()
     
     async def __aenter__(self):
-        """异步上下文管理器入口"""
+        """Asynchronous context manager entry"""
         return self
     
     async def __aexit__(self, exc_type, exc_val, exc_tb):
-        """异步上下文管理器出口"""
+        """Asynchronous context manager exit"""
         await self.close()

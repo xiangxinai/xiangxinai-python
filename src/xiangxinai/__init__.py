@@ -1,32 +1,32 @@
 """
-象信AI安全护栏 Python 客户端
+Xiangxin AI guardrails Python SDK - An LLM-based context-aware AI guardrail that understands conversation context for security, safety and data leakage detection.
 
-基于LLM的上下文感知AI安全护栏，能够理解对话上下文进行安全检测。
+An LLM-based context-aware AI guardrail that understands conversation context for security, safety and data leakage detection.
 
-这个包提供了与象信AI安全护栏API交互的Python客户端库。
+This package provides a Python client library for interacting with the Xiangxin AI guardrails API.
 
 Example:
-    基本用法:
+    Basic usage:
     
     from xiangxinai import XiangxinAI
     
-    # 使用云端API
+    # Use the cloud API
     client = XiangxinAI("your-api-key")
     
-    # 检测用户输入
-    result = client.check_prompt("用户的问题")
+    # Check user input
+    result = client.check_prompt("The user's question")
 
-    # 检测输出内容（基于上下文）
-    result = client.check_response_ctx("用户问题", "助手回答")
+    # Check output content (based on context)
+    result = client.check_response_ctx("The user's question", "The assistant's answer")
 
-    # 检测对话上下文（用户+助手回答）
+    # Check conversation context (user + assistant answer)
     messages = [
-        {"role": "user", "content": "用户问题"},
-        {"role": "assistant", "content": "助手回答"}
+        {"role": "user", "content": "The user's question"},
+        {"role": "assistant", "content": "The assistant's answer"}
     ]
     result = client.check_conversation(messages)
-    print(result.overall_risk_level)  # 输出: 无风险/高风险/中风险/低风险
-    print(result.suggest_action)  # 输出: 通过/代答/阻断
+    print(result.overall_risk_level)  # Output: no_risk/high_risk/medium_risk/low_risk
+    print(result.suggest_action)  # Output: pass/replace/reject
 """
 
 from .client import XiangxinAI, AsyncXiangxinAI
@@ -45,7 +45,7 @@ from .exceptions import (
     ValidationError
 )
 
-__version__ = "2.4.0"
+__version__ = "2.6.1"
 __author__ = "XiangxinAI"
 __email__ = "wanglei@xiangxinai.cn"
 
